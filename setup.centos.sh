@@ -1,16 +1,16 @@
 #!/bin/sh
 
 # CENTOS
-sudo yum install epel-release
-sudo yum install vim
-sudo yum install gcc-c++
-sudo yum install python36
-sudo yum install htop
-sudo yum install tmux
-sudo yum install redis
-sudo yum install cmake
-sudo yum install git
-sudo yum install zlib-devel
+sudo yum install -y epel-release
+sudo yum install -y vim
+sudo yum install -y gcc-c++
+sudo yum install -y python36
+sudo yum install -y htop
+sudo yum install -y tmux
+sudo yum install -y redis
+sudo yum install -y cmake
+sudo yum install -y git
+sudo yum install -y zlib-devel
 
 git clone https://github.com/deyandyankov/deep-neuroevolution
 cd deep-neuroevolution
