@@ -59,6 +59,7 @@ def run_master(master_redis_cfg, log_dir, exp):
     logger.info('run_master: {}'.format(locals()))
     from .optimizers import SGD, Adam
     from . import tabular_logger as tlogger
+    tlogger.start(log_dir)
     config, env = setup_env(exp)
     algo_type = exp['algo_type']
     master = MasterClient(master_redis_cfg)
@@ -296,6 +297,11 @@ def run_master(master_redis_cfg, log_dir, exp):
             assert not osp.exists(filename)
             policy.save(filename)
             tlogger.log('Saved snapshot {}'.format(filename))
+
+        if episodes_so_far > 10000:
+            tlogger.info("Stopping after 10,000 episodes")
+            tlogger.stop()
+            break
 
 def run_worker(master_redis_cfg, relay_redis_cfg, noise, *, min_task_runtime=.2):
     logger.info('run_worker: {}'.format(locals()))
