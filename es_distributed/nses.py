@@ -298,8 +298,8 @@ def run_master(master_redis_cfg, log_dir, exp):
             policy.save(filename)
             tlogger.log('Saved snapshot {}'.format(filename))
 
-        if episodes_so_far > 10000:
-            tlogger.info("Stopping after 10,000 episodes")
+        if episodes_so_far > 1000000:
+            tlogger.info("Stopping after 1,000,000 episodes")
             tlogger.stop()
             break
 
