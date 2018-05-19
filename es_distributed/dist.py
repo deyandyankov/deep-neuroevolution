@@ -83,7 +83,7 @@ class MasterClient:
 
     def pop_result(self):
         task_id, result = deserialize(self.master_redis.blpop(RESULTS_KEY)[1])
-        logger.info('[master] Popped a result for task {}'.format(task_id))
+        logger.debug('[master] Popped a result for task {}'.format(task_id))
         return task_id, result
 
     def flush_results(self):
