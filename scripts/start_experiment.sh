@@ -5,12 +5,10 @@ algo="nsr-es"
 configfile="configurations/frostbite_nsres.json"
 
 echo "Killing all user processes on master..."
-ssh $master_instance "pkill -u `whoami`"
 echo "Starting scripts/run_master.sh on master..."
 ssh -t $master_instance "cd deep-neuroevolution && git pull && . scripts/run_master.sh $algo $configfile"
 
 for worker in $worker_instances; do
 	echo "Initiating ${worker}"
-	ssh -t $worker "pkill -u `whoami`"
-	ssh -t $worker "cd deep-neuroevolution && git pull && . scripts/run_worker.sh $algo"
+	ssh -t $worker "cd deep-neuroevolution && git pull && . scripts/run_worker.sh $algo" &
 done
