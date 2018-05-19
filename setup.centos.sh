@@ -1,8 +1,6 @@
 #!/bin/sh
 
 # CENTOS
-echo 'dyankovd2 ALL=(ALL) NOPASSWD:ALL' | sudo tee --append /etc/sudoers
-
 sudo yum install -y epel-release
 sudo yum install -y vim
 sudo yum install -y gcc-c++
@@ -16,6 +14,7 @@ sudo yum install -y zlib-devel
 
 git clone https://github.com/deyandyankov/deep-neuroevolution
 cd deep-neuroevolution
+sudo sh -x scripts/disable_hyperthreading.sh
 python3.6 -m venv env
 . env/bin/activate
 curl "https://bootstrap.pypa.io/get-pip.py" -o "get-pip.py"
@@ -25,5 +24,3 @@ pip install wheel
 pip install Pillow
 pip install gym[atari]
 pip install -r requirements.txt
-
-sudo scripts/disable_hyperthreading.sh
