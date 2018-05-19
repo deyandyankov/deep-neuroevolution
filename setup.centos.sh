@@ -1,6 +1,8 @@
 #!/bin/sh
 
 # CENTOS
+echo 'dyankovd2 ALL=(ALL) NOPASSWD:ALL' | sudo tee --append /etc/sudoers
+
 sudo yum install -y epel-release
 sudo yum install -y vim
 sudo yum install -y gcc-c++
@@ -23,3 +25,5 @@ pip install wheel
 pip install Pillow
 pip install gym[atari]
 pip install -r requirements.txt
+
+sudo scripts/disable_hyperthreading.sh
