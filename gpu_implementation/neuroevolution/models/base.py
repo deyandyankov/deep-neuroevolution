@@ -189,4 +189,4 @@ class BaseModel(object):
             assigns.append(tf.scatter_update(v, self.theta_idx, tf.reshape(self.theta[offset:offset+size], shape[1:])))
             offset += size
         self.load_op = tf.group( * assigns)
-        self.description += "Number of parameteres: {}".format(self.num_params)
+        self.description += "Number of parameters: {}\n".format(self.num_params)
