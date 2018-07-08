@@ -158,6 +158,8 @@ class BaseModel(object):
     def load(self, sess, i, theta, seeds):
         if self.seeds[i] == seeds:
             return False
+        print("DYING")
+        print(self.load_op)
         sess.run(self.load_op, {self.theta: theta, self.theta_idx: i})
         self.seeds[i] = seeds
         return True

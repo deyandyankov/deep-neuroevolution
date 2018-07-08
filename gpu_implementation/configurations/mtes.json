@@ -1,5 +1,5 @@
 {
-    "game": "frostbite",
+    "games": ["space_invaders", "phoenix"],
     "model": "ModelVirtualBN",
     "num_validation_episodes": 30,
     "num_test_episodes": 200,

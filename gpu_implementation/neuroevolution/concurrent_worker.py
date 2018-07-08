@@ -27,7 +27,8 @@ from multiprocessing.pool import ApplyResult
 from .distributed_helpers import AsyncWorker, WorkerHub, AsyncTaskHub
 
 class RLEvalutionWorker(AsyncWorker):
-    def __init__(self, make_env_f, model, batch_size, device='/cpu:0', ref_batch=None):
+    def __init__(self, make_env_f, model, batch_size, device='/cpu:1', ref_batch=None):
+        print("Initialising RLEvaluationWorker with make_env_f=%s" % make_env_f)
         self.batch_size = batch_size
         self.make_env_f = make_env_f
         self.sample_callback = [None] * self.batch_size
@@ -123,7 +124,6 @@ class RLEvalutionWorker(AsyncWorker):
         self.sess.run(self.reset_op, {self.placeholder_indices:[task_id], self.placeholder_max_frames:[max_frames]})
         self.sample_callback[task_id] = callback
         self.queue.put(task_id)
-
 
 class ConcurrentWorkers(object):
     def __init__(self, make_env_f, *args, gpus=get_available_gpus() * 4, input_queue=None, done_queue=None, **kwargs):
@@ -231,3 +231,30 @@ class ConcurrentWorkers(object):
             self.hub.close()
         for worker in self.workers:
             worker.close()
+
+
+class MTConcurrentWorkers(ConcurrentWorkers):
+    def __init__(self, make_env_fs, *args, gpus=get_available_gpus() * 4, **kwargs):
+        tlogger.info("Calling MTConcurrentWorkers()")
+        self.sess = None
+        if not gpus:
+            gpus = ['/cpu:0']
+        print("GPUS: {}".format(gpus))
+        with tf.Session() as sess:
+            import gym_tensorflow
+            self.workers = []
+            for i in range(len(gpus)):
+                # alternate between games for multi task learning
+                if (i + 1) % 2 == 0:
+                    game_index = 1 # second game
+                else:
+                    game_index = 0 # first game
+                game_make_env = make_env_fs[game_index]
+                ref_batch = gym_tensorflow.get_ref_batch(game_make_env, sess, 128)
+                ref_batch = ref_batch[:, ...]
+                worker = RLEvalutionWorker(game_make_env, *args, ref_batch=ref_batch, **dict(kwargs, device=gpus[i]))
+                self.workers.append(worker)
+            self.model = self.workers[0].model
+            self.steps_counter = sum([w.steps_counter for w in self.workers])
+            self.async_hub = AsyncTaskHub()
+            self.hub = WorkerHub(self.workers, self.async_hub.input_queue, self.async_hub)

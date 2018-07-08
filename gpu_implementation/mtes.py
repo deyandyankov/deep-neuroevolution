@@ -31,6 +31,7 @@ import numpy as np
 from neuroevolution.tf_util import get_available_gpus, WorkerSession
 from neuroevolution.helper import SharedNoiseTable, make_schedule
 from neuroevolution.concurrent_worker import ConcurrentWorkers
+from neuroevolution.concurrent_worker import MTConcurrentWorkers
 from neuroevolution.optimizers import SGD, Adam
 import neuroevolution.models
 import tabular_logger as tlogger
@@ -71,6 +72,7 @@ class TrainingState(object):
             raise NotImplementedError(exp['episode_cutoff_mode'])
 
     def initialize(self, rs, noise, model):
+        print("DEYAN initialize() from TrainingState")
         theta, _ = model.randomize(rs, noise)
         self.set_theta(theta)
 
@@ -80,6 +82,27 @@ class TrainingState(object):
 
     def sample(self, schedule):
         return schedule.value(iteration=self.it, timesteps_so_far=self.timesteps_so_far)
+
+class MTTrainingState(TrainingState):
+    def __init__(self, exp):
+        self.num_frames = 0
+        self.timesteps_so_far = 0
+        self.time_elapsed = 0
+        self.validation_timesteps_so_far = 0
+        self.it = 0
+        self.mutation_power = make_schedule(exp['mutation_power'])
+        self.exp = exp
+
+        self.theta = None
+        self.optimizer = None
+        self.tslimit = exp['episode_cutoff_mode']
+        self.incr_tslimit_threshold = None
+        self.tslimit_incr_ratio = None
+        self.adaptive_tslimit = False
+
+    def initialize(self, rs, noise, model):
+        print("DEYAN running MTTrainingState.initialize()")
+        super(MTTrainingState, self).initialize(rs, noise, model)
 
 class Offspring(object):
     def __init__(self, seeds, rewards, ep_len, validation_rewards=[], validation_ep_len=[]):
@@ -119,7 +142,6 @@ def compute_ranks(x):
     ranks[x.argsort()] = np.arange(len(x))
     return ranks
 
-
 def compute_centered_ranks(x):
     y = compute_ranks(x.ravel()).reshape(x.shape).astype(np.float32)
     y /= (x.size - 1)
@@ -143,34 +165,26 @@ def main(**exp):
     tlogger.info('Logging to: {}'.format(log_dir))
     Model = neuroevolution.models.__dict__[exp['model']]
     all_tstart = time.time()
+
     def make_env(b):
-        return gym_tensorflow.make(game=exp["game"], batch_size=b)
-    worker = ConcurrentWorkers(make_env, Model, batch_size=32)
+        return gym_tensorflow.make(game=exp['game'], batch_size=b)
+
+    def make_env_game0(b):
+        return gym_tensorflow.make(game=exp['games'][0], batch_size=b)
+    def make_env_game1(b):
+        return gym_tensorflow.make(game=exp['games'][1], batch_size=b)
+
+    worker = MTConcurrentWorkers([make_env_game0, make_env_game1], Model, batch_size=32)
+
     with WorkerSession(worker) as sess:
         noise = SharedNoiseTable()
         rs = np.random.RandomState()
         tlogger.info('Start timing')
         tstart = time.time()
 
-        try:
-            load_file = os.path.join(log_dir, 'snapshot.pkl')
-            with open(load_file, 'rb+') as file:
-                state = pickle.load(file)
-            tlogger.info("Loaded iteration {} from {}".format(state.it, load_file))
-        except FileNotFoundError:
-            tlogger.info('Failed to load snapshot')
-            state = TrainingState(exp)
+        state = MTTrainingState(exp)
+        state.initialize(rs, noise, worker.model)
 
-            if 'load_from' in exp:
-                dirname = os.path.join(os.path.dirname(__file__), '..', 'neuroevolution', 'ga_legacy.py')
-                load_from = exp['load_from'].format(**exp)
-                os.system('python {} {} seeds.pkl'.format(dirname, load_from))
-                with open('seeds.pkl', 'rb+') as file:
-                    seeds = pickle.load(file)
-                    state.set_theta(worker.model.compute_weights_from_seeds(noise, seeds))
-                tlogger.info('Loaded initial theta from {}'.format(load_from))
-            else:
-                state.initialize(rs, noise, worker.model)
         def make_offspring(state):
             for i in range(exp['population_size'] // 2):
                 idx = noise.sample_index(rs, worker.model.num_params)
@@ -186,6 +200,7 @@ def main(**exp):
 
         tlogger.info('Start training')
         _, initial_performance, _ = worker.monitor_eval_repeated([(state.theta, 0)], max_frames=None, num_episodes=exp['num_test_episodes'])[0]
+        print("DEYAN past worker.monitor_eval_repeated")
         while True:
             tstart_iteration = time.time()
             if state.timesteps_so_far >= exp['timesteps']:
