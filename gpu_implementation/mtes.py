@@ -200,7 +200,8 @@ def main(**exp):
 
         tlogger.info('Start training')
         _, initial_performance, _ = worker.monitor_eval_repeated([(state.theta, 0)], max_frames=None, num_episodes=exp['num_test_episodes'])[0]
-        print("DEYAN past worker.monitor_eval_repeated")
+
+        print("=== past worker.monitor_eval_repeated")
         while True:
             tstart_iteration = time.time()
             if state.timesteps_so_far >= exp['timesteps']:

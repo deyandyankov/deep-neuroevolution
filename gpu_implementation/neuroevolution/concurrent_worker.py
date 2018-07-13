@@ -16,6 +16,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 """
+import pdb
 import time
 import threading
 import tensorflow as tf
@@ -28,7 +29,6 @@ from .distributed_helpers import AsyncWorker, WorkerHub, AsyncTaskHub
 
 class RLEvalutionWorker(AsyncWorker):
     def __init__(self, make_env_f, model, batch_size, device='/cpu:1', ref_batch=None):
-        print("Initialising RLEvaluationWorker with make_env_f=%s" % make_env_f)
         self.batch_size = batch_size
         self.make_env_f = make_env_f
         self.sample_callback = [None] * self.batch_size
@@ -59,7 +59,8 @@ class RLEvalutionWorker(AsyncWorker):
                 with tf.device(device):
                     self.obs_op = self.env.observation(indices=self.placeholder_indices)
                     obs = tf.expand_dims(self.obs_op, axis=1)
-                    self.action_op = self.model.make_net(obs, self.env.action_space, indices=self.placeholder_indices, batch_size=self.batch_size, ref_batch=ref_batch)
+                    #self.action_op = self.model.make_net(obs, self.env.action_space, indices=self.placeholder_indices, batch_size=self.batch_size, ref_batch=ref_batch)
+                    self.action_op = self.model.make_net(obs, 4, indices=self.placeholder_indices, batch_size=self.batch_size, ref_batch=ref_batch)
                 self.model.initialize()
 
                 if self.env.discrete_action:
@@ -125,6 +126,49 @@ class RLEvalutionWorker(AsyncWorker):
         self.sample_callback[task_id] = callback
         self.queue.put(task_id)
 
+class MTRLEvalutionWorker(RLEvalutionWorker):
+    def __init__(self, game_index, make_env_f, model, batch_size, device='/cpu:1', ref_batch=None):
+        print("Initialising MTRLEvaluationWorker with make_env_f=%s" % make_env_f)
+        self.game_index = game_index
+        super(MTRLEvalutionWorker, self).__init__(make_env_f, model, batch_size, device, ref_batch)
+
+    def run_async(self, task_id, task, callback):
+        print("=== [game_index={}] MTRLEvaluationWorker.run_async(task_id={}, task={}, callback={})".format(self.game_index, task_id, task, callback))
+        theta, extras, max_frames = task
+        self.model.load(self.sess, task_id, theta, extras)
+
+    def make_net(self, model_constructor, device, ref_batch=None):
+        override_action_space = 4
+        self.model = model_constructor()
+        print("=== make_net with self.make_env_f={} and batch_size={}".format(self.make_env_f, self.batch_size))
+        with tf.variable_scope(None, default_name='model'):
+            with tf.device('/cpu:0'):
+                self.env = self.make_env_f(self.batch_size)
+                self.placeholder_indices = tf.placeholder(tf.int32, shape=(None, ))
+                self.placeholder_max_frames = tf.placeholder(tf.int32, shape=(None, ))
+                self.reset_op = self.env.reset(indices=self.placeholder_indices, max_frames=self.placeholder_max_frames)
+
+                with tf.device(device):
+                    self.obs_op = self.env.observation(indices=self.placeholder_indices)
+                    obs = tf.expand_dims(self.obs_op, axis=1)
+                    if override_action_space is not None:
+                        print("=== Overriding action space to: {}".format(override_action_space))
+                        self.action_op = self.model.make_net(obs, override_action_space, indices=self.placeholder_indices, batch_size=self.batch_size, ref_batch=ref_batch)
+                        print(self.action_op)
+                    else:
+                        self.action_op = self.model.make_net(obs, self.env.action_space, indices=self.placeholder_indices, batch_size=self.batch_size, ref_batch=ref_batch)
+                self.model.initialize()
+
+                if self.env.discrete_action:
+                    self.action_op = tf.argmax(self.action_op[:tf.shape(self.placeholder_indices)[0]], axis=-1, output_type=tf.int32)
+                with tf.device(device):
+                    self.rew_op, self.done_op = self.env.step(self.action_op, indices=self.placeholder_indices)
+
+                self.steps_counter = tf.Variable(np.zeros((), dtype=np.int64))
+                self.incr_counter = tf.assign_add(self.steps_counter, tf.cast(tf.reduce_prod(tf.shape(self.placeholder_indices)), dtype=tf.int64))
+
+
+
 class ConcurrentWorkers(object):
     def __init__(self, make_env_f, *args, gpus=get_available_gpus() * 4, input_queue=None, done_queue=None, **kwargs):
         self.sess = None
@@ -182,6 +226,7 @@ class ConcurrentWorkers(object):
         return [t.get() for t in tasks]
 
     def monitor_eval_repeated(self, it, max_frames, num_episodes):
+        print("=== INTO monitor_eval_repeated")
         logging_interval = 30
         last_timesteps = self.sess.run(self.steps_counter)
         tstart_all = time.time()
@@ -193,10 +238,13 @@ class ConcurrentWorkers(object):
                 tasks.append(self.eval_async(*t, max_frames=max_frames))
                 if time.time() - tstart > logging_interval:
                     cur_timesteps = self.sess.run(self.steps_counter)
-                    tlogger.info('Num timesteps:', cur_timesteps, 'per second:', (cur_timesteps-last_timesteps)//(time.time()-tstart), 'num episodes finished: {}/{}'.format(sum([1 if task.ready() else 0 for task in tasks]), len(tasks)))
+                    logstr = 'Num timesteps:', cur_timesteps, 'per second:', (cur_timesteps-last_timesteps)//(time.time()-tstart), 'num episodes finished: {}/{}'.format(sum([1 if task.ready() else 0 for task in tasks]), len(tasks))
+                    tlogger.info(logstr)
+                    print("=== " + logstr)
                     tstart = time.time()
                     last_timesteps = cur_timesteps
 
+        print("=== end for loop in monitor_eval_repeated")
         while not all([t.ready() for t in tasks]):
             if time.time() - tstart > 5:
                 cur_timesteps = self.sess.run(self.steps_counter)
@@ -249,12 +297,15 @@ class MTConcurrentWorkers(ConcurrentWorkers):
                     game_index = 1 # second game
                 else:
                     game_index = 0 # first game
+                game_index=1
                 game_make_env = make_env_fs[game_index]
                 ref_batch = gym_tensorflow.get_ref_batch(game_make_env, sess, 128)
                 ref_batch = ref_batch[:, ...]
+                #worker = MTRLEvalutionWorker(game_index, game_make_env, *args, ref_batch=ref_batch, **dict(kwargs, device=gpus[i]))
                 worker = RLEvalutionWorker(game_make_env, *args, ref_batch=ref_batch, **dict(kwargs, device=gpus[i]))
                 self.workers.append(worker)
             self.model = self.workers[0].model
             self.steps_counter = sum([w.steps_counter for w in self.workers])
             self.async_hub = AsyncTaskHub()
             self.hub = WorkerHub(self.workers, self.async_hub.input_queue, self.async_hub)
+

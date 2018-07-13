@@ -85,6 +85,7 @@ class WorkerHub(object):
             raise
 
     def initialize(self):
+        print("=== WorkerHub.initialize()")
         self._input_handler.start()
         self._output_handler.start()
 

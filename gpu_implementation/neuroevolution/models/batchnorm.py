@@ -23,6 +23,7 @@ import tensorflow as tf
 
 class ModelBN(Model):
     def __init__(self):
+        print("=== Instantiating ModelBN...")
         super(ModelBN, self).__init__()
         self.nonlin = lambda x: tf.nn.relu(self.batchnorm(x))
     def batchnorm(self, x):
