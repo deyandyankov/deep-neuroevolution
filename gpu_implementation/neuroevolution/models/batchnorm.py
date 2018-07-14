@@ -26,6 +26,7 @@ class ModelBN(Model):
         print("=== Instantiating ModelBN...")
         super(ModelBN, self).__init__()
         self.nonlin = lambda x: tf.nn.relu(self.batchnorm(x))
+
     def batchnorm(self, x):
         with tf.variable_scope(None, default_name='BatchNorm'):
             ret = tf.layers.batch_normalization(x, center=False, scale=False, training=True)
@@ -127,4 +128,3 @@ class MTModelVirtualBN(ModelVirtualBN):
     def __init__(self):
         print("=== Instantiaing MTModelVirtualBN")
         super(MTModelVirtualBN, self).__init__()
- 

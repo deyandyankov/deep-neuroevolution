@@ -59,8 +59,7 @@ class RLEvalutionWorker(AsyncWorker):
                 with tf.device(device):
                     self.obs_op = self.env.observation(indices=self.placeholder_indices)
                     obs = tf.expand_dims(self.obs_op, axis=1)
-                    #self.action_op = self.model.make_net(obs, self.env.action_space, indices=self.placeholder_indices, batch_size=self.batch_size, ref_batch=ref_batch)
-                    self.action_op = self.model.make_net(obs, 4, indices=self.placeholder_indices, batch_size=self.batch_size, ref_batch=ref_batch)
+                    self.action_op = self.model.make_net(obs, self.env.action_space, indices=self.placeholder_indices, batch_size=self.batch_size, ref_batch=ref_batch)
                 self.model.initialize()
 
                 if self.env.discrete_action:
@@ -132,15 +131,10 @@ class MTRLEvalutionWorker(RLEvalutionWorker):
         self.game_index = game_index
         super(MTRLEvalutionWorker, self).__init__(make_env_f, model, batch_size, device, ref_batch)
 
-    def run_async(self, task_id, task, callback):
-        print("=== [game_index={}] MTRLEvaluationWorker.run_async(task_id={}, task={}, callback={})".format(self.game_index, task_id, task, callback))
-        theta, extras, max_frames = task
-        self.model.load(self.sess, task_id, theta, extras)
-
     def make_net(self, model_constructor, device, ref_batch=None):
         override_action_space = 4
         self.model = model_constructor()
-        print("=== make_net with self.make_env_f={} and batch_size={}".format(self.make_env_f, self.batch_size))
+        print("=== make_net with override_action_space={}, self.make_env_f={} and batch_size={}".format(override_action_space, self.make_env_f, self.batch_size))
         with tf.variable_scope(None, default_name='model'):
             with tf.device('/cpu:0'):
                 self.env = self.make_env_f(self.batch_size)
@@ -152,7 +146,6 @@ class MTRLEvalutionWorker(RLEvalutionWorker):
                     self.obs_op = self.env.observation(indices=self.placeholder_indices)
                     obs = tf.expand_dims(self.obs_op, axis=1)
                     if override_action_space is not None:
-                        print("=== Overriding action space to: {}".format(override_action_space))
                         self.action_op = self.model.make_net(obs, override_action_space, indices=self.placeholder_indices, batch_size=self.batch_size, ref_batch=ref_batch)
                         print(self.action_op)
                     else:
@@ -301,8 +294,7 @@ class MTConcurrentWorkers(ConcurrentWorkers):
                 game_make_env = make_env_fs[game_index]
                 ref_batch = gym_tensorflow.get_ref_batch(game_make_env, sess, 128)
                 ref_batch = ref_batch[:, ...]
-                #worker = MTRLEvalutionWorker(game_index, game_make_env, *args, ref_batch=ref_batch, **dict(kwargs, device=gpus[i]))
-                worker = RLEvalutionWorker(game_make_env, *args, ref_batch=ref_batch, **dict(kwargs, device=gpus[i]))
+                worker = MTRLEvalutionWorker(game_index, game_make_env, *args, ref_batch=ref_batch, **dict(kwargs, device=gpus[i]))
                 self.workers.append(worker)
             self.model = self.workers[0].model
             self.steps_counter = sum([w.steps_counter for w in self.workers])
