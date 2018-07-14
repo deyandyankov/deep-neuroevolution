@@ -122,3 +122,9 @@ class ModelVirtualBN(Model):
         ret = super(ModelVirtualBN, self).load(sess, i, *args, **kwargs)
         sess.run(self.ref_batch_assign, {self.ref_batch_idx: i})
         return ret
+
+class MTModelVirtualBN(ModelVirtualBN):
+    def __init__(self):
+        print("=== Instantiaing MTModelVirtualBN")
+        super(MTModelVirtualBN, self).__init__()
+ 

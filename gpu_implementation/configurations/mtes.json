@@ -1,6 +1,6 @@
 {
     "games": ["space_invaders", "phoenix"],
-    "model": "ModelVirtualBN",
+    "model": "MTModelVirtualBN",
     "num_validation_episodes": 30,
     "num_test_episodes": 200,
     "population_size": 5000,
