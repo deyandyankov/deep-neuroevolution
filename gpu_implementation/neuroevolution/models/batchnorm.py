@@ -23,7 +23,6 @@ import tensorflow as tf
 
 class ModelBN(Model):
     def __init__(self):
-        print("=== Instantiating ModelBN...")
         super(ModelBN, self).__init__()
         self.nonlin = lambda x: tf.nn.relu(self.batchnorm(x))
     def batchnorm(self, x):
@@ -122,3 +121,8 @@ class ModelVirtualBN(Model):
         ret = super(ModelVirtualBN, self).load(sess, i, *args, **kwargs)
         sess.run(self.ref_batch_assign, {self.ref_batch_idx: i})
         return ret
+
+class MTModelVirtualBN(ModelVirtualBN):
+    def __init__(self):
+        print("=== Instantiating MTModelVirtualBN")
+        super(MTModelVirtualBN, self).__init__()
