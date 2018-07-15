@@ -30,8 +30,10 @@ def get_available_gpus():
 
 class WorkerSession(object):
     def __init__(self, worker):
+        print("=== WorkerSession.__init__, worker={}".format(worker))
         self._worker = worker
     def __enter__(self, *args, **kwargs):
+        print("=== WorkerSession, initializing _worker with self._sess ...")
         self._sess = tf.Session(*args, **kwargs)
         self._sess.run(tf.global_variables_initializer())
         self._worker.initialize(self._sess)

@@ -175,8 +175,9 @@ def main(**exp):
         return gym_tensorflow.make(game=exp['games'][1], batch_size=b)
 
     worker = MTConcurrentWorkers([make_env_game0, make_env_game1], Model, batch_size=32)
-
+    print("=== [mtes] worker.sess = {}".format(worker.sess))
     with WorkerSession(worker) as sess:
+        print("=== [mtes] worker.sess = {}".format(worker.sess))
         noise = SharedNoiseTable()
         rs = np.random.RandomState()
         tlogger.info('Start timing')
@@ -187,6 +188,7 @@ def main(**exp):
 
         def make_offspring(state):
             for i in range(exp['population_size'] // 2):
+                print("=== [make_offspring] i = {}".format(i))
                 idx = noise.sample_index(rs, worker.model.num_params)
                 mutation_power = state.sample(state.mutation_power)
                 pos_theta = worker.model.compute_mutation(noise, state.theta, idx, mutation_power)
@@ -209,7 +211,7 @@ def main(**exp):
                 tlogger.info('Training terminated after {} timesteps'.format(state.timesteps_so_far))
                 break
             frames_computed_so_far = sess.run(worker.steps_counter)
-
+            print("=== frames_captured_so_far = {}".format(frames_computed_so_far))
             tlogger.info('Evaluating perturbations')
             iterator = iter(worker.monitor_eval(make_offspring(state), max_frames=state.tslimit * 4))
             results = []

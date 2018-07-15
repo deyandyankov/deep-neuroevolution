@@ -16,7 +16,6 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 """
-import pdb
 import time
 import threading
 import tensorflow as tf
@@ -206,7 +205,6 @@ class ConcurrentWorkers(object):
                 tlogger.info('Num timesteps:', cur_timesteps, 'per second:', (cur_timesteps-last_timesteps)//(time.time()-tstart), 'num episodes finished: {}/{}'.format(sum([1 if t.ready() else 0 for t in tasks]), len(tasks)))
                 tstart = time.time()
                 last_timesteps = cur_timesteps
-
         while not all([t.ready() for t in tasks]):
             if time.time() - tstart > logging_interval:
                 cur_timesteps = self.sess.run(self.steps_counter)
@@ -246,7 +244,6 @@ class ConcurrentWorkers(object):
         tlogger.info('Done evaluating {} episodes in {:.2f} seconds'.format(len(tasks), time.time()-tstart_all))
 
         results = [t.get() for t in tasks]
-        print("=== results: {}".format(results))
         # Group episodes
         results = zip(*[iter(results)] * num_episodes)
 
@@ -256,9 +253,11 @@ class ConcurrentWorkers(object):
             for s in seeds[1:]:
                 assert s == seeds[0]
             l.append((seeds[0], np.array(rews), np.array(length)))
+        print("=== monitor_eval_repetead returns l = {}".format(l))
         return l
 
     def initialize(self, sess):
+        print("=== ConcurrentWorkers, initializing all concurrent workers with session {}".format(sess))
         for worker in self.workers:
             worker.initialize(sess)
         self.sess = sess
@@ -274,7 +273,7 @@ class ConcurrentWorkers(object):
 
 class MTConcurrentWorkers(ConcurrentWorkers):
     def __init__(self, make_env_fs, *args, gpus=get_available_gpus() * 4, **kwargs):
-        tlogger.info("Calling MTConcurrentWorkers()")
+        tlogger.info("=== Calling MTConcurrentWorkers()")
         self.sess = None
         if not gpus:
             gpus = ['/cpu:0']
@@ -300,5 +299,38 @@ class MTConcurrentWorkers(ConcurrentWorkers):
             self.hub = WorkerHub(self.workers, self.async_hub.input_queue, self.async_hub)
 
     def monitor_eval_repeated(self, it, max_frames, num_episodes):
-        print("=== not doing monitor_eval_repeated for now")
-        return [(0, 0, 0)]
+        print("=== [MTConcurrentWorkers.monitor_eval_repeated] self.sess = {}".format(self.sess))
+        return super(MTConcurrentWorkers, self).monitor_eval_repeated(it, max_frames, num_episodes)
+
+    def monitor_eval(self, it, max_frames):
+        logging_interval = 5
+        print("=== [MTConcurrentWorkers.monitor_eval] it = {}".format(it))
+        print("=== [MTConcurrentWorkers.monitor_eval] self.sess = {}".format(self.sess))
+        print("=== [MTConcurrentWorkers.monitor_eval] self.steps_counter = {}".format(self.steps_counter))
+        last_timesteps = self.sess.run(self.steps_counter)
+        print("=== [MTConcurrentWorkers.mmonitor_eval] last_timesteps = {}".format(last_timesteps))
+        tstart_all = time.time()
+        tstart = time.time()
+
+        tasks = []
+        for t in it:
+            print("=== [MTConcurrentWorkers.monitor_eval] tasks appended so far: {}".format(len(tasks)))
+            tasks.append(self.eval_async(*t, max_frames=max_frames))
+            if time.time() - tstart > logging_interval:
+                cur_timesteps = self.sess.run(self.steps_counter)
+                tlogger.info('Num timesteps:', cur_timesteps, 'per second:', (cur_timesteps-last_timesteps)//(time.time()-tstart), 'num episodes finished: {}/{}'.format(sum([1 if t.ready() else 0 for t in tasks]), len(tasks)))
+                tstart = time.time()
+                last_timesteps = cur_timesteps
+
+        print("=== [MTConcurrentWorkers.monitor_eval] -- all tasks are ready")
+        while not all([t.ready() for t in tasks]):
+            if time.time() - tstart > logging_interval:
+                cur_timesteps = self.sess.run(self.steps_counter)
+                tlogger.info('Num timesteps:', cur_timesteps, 'per second:', (cur_timesteps-last_timesteps)//(time.time()-tstart), 'num episodes:', sum([1 if t.ready() else 0 for t in tasks]))
+                tstart = time.time()
+                last_timesteps = cur_timesteps
+            time.sleep(0.1)
+        tlogger.info('Done evaluating {} episodes in {:.2f} seconds'.format(len(tasks), time.time()-tstart_all))
+
+        return [t.get() for t in tasks]
+
