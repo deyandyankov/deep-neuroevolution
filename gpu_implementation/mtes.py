@@ -203,6 +203,7 @@ def main(**exp):
 
         print("=== past worker.monitor_eval_repeated")
         while True:
+            print("=== next cycle in while loop")
             tstart_iteration = time.time()
             if state.timesteps_so_far >= exp['timesteps']:
                 tlogger.info('Training terminated after {} timesteps'.format(state.timesteps_so_far))

@@ -219,7 +219,6 @@ class ConcurrentWorkers(object):
         return [t.get() for t in tasks]
 
     def monitor_eval_repeated(self, it, max_frames, num_episodes):
-        print("=== INTO monitor_eval_repeated")
         logging_interval = 30
         last_timesteps = self.sess.run(self.steps_counter)
         tstart_all = time.time()
@@ -237,7 +236,6 @@ class ConcurrentWorkers(object):
                     tstart = time.time()
                     last_timesteps = cur_timesteps
 
-        print("=== end for loop in monitor_eval_repeated")
         while not all([t.ready() for t in tasks]):
             if time.time() - tstart > 5:
                 cur_timesteps = self.sess.run(self.steps_counter)
@@ -248,7 +246,7 @@ class ConcurrentWorkers(object):
         tlogger.info('Done evaluating {} episodes in {:.2f} seconds'.format(len(tasks), time.time()-tstart_all))
 
         results = [t.get() for t in tasks]
-
+        print("=== results: {}".format(results))
         # Group episodes
         results = zip(*[iter(results)] * num_episodes)
 
@@ -290,7 +288,7 @@ class MTConcurrentWorkers(ConcurrentWorkers):
                     game_index = 1 # second game
                 else:
                     game_index = 0 # first game
-                game_index=1
+                game_index=0
                 game_make_env = make_env_fs[game_index]
                 ref_batch = gym_tensorflow.get_ref_batch(game_make_env, sess, 128)
                 ref_batch = ref_batch[:, ...]
@@ -301,3 +299,6 @@ class MTConcurrentWorkers(ConcurrentWorkers):
             self.async_hub = AsyncTaskHub()
             self.hub = WorkerHub(self.workers, self.async_hub.input_queue, self.async_hub)
 
+    def monitor_eval_repeated(self, it, max_frames, num_episodes):
+        print("=== not doing monitor_eval_repeated for now")
+        return [(0, 0, 0)]
