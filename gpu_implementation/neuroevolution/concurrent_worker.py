@@ -287,7 +287,6 @@ class MTConcurrentWorkers(ConcurrentWorkers):
                     game_index = 1 # second game
                 else:
                     game_index = 0 # first game
-                game_index=0
                 game_make_env = make_env_fs[game_index]
                 ref_batch = gym_tensorflow.get_ref_batch(game_make_env, sess, 128)
                 ref_batch = ref_batch[:, ...]
@@ -314,7 +313,7 @@ class MTConcurrentWorkers(ConcurrentWorkers):
 
         tasks = []
         for t in it:
-            print("=== [MTConcurrentWorkers.monitor_eval] tasks appended so far: {}".format(len(tasks)))
+#            print("=== [MTConcurrentWorkers.monitor_eval] tasks appended so far: {}".format(len(tasks)))
             tasks.append(self.eval_async(*t, max_frames=max_frames))
             if time.time() - tstart > logging_interval:
                 cur_timesteps = self.sess.run(self.steps_counter)

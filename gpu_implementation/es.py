@@ -278,8 +278,8 @@ def main(**exp):
             os.makedirs(log_dir, exist_ok=True)
             save_file = os.path.join(log_dir, 'snapshot.pkl')
             with open(save_file, 'wb+') as file:
-                pickle.dump(state, file)
-            #copyfile(save_file, os.path.join(log_dir, 'snapshot_gen{:04d}.pkl'.format(state.it)))
+                pickle.dump(state, file, pickle.HIGHEST_PROTOCOL)
+            copyfile(save_file, os.path.join(log_dir, 'snapshot_gen{:04d}.pkl'.format(state.it)))
             tlogger.info("Saved iteration {} to {}".format(state.it, save_file))
 
             if state.timesteps_so_far >= exp['timesteps']:

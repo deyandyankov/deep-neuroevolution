@@ -174,7 +174,8 @@ def main(**exp):
     def make_env_game1(b):
         return gym_tensorflow.make(game=exp['games'][1], batch_size=b)
 
-    worker = MTConcurrentWorkers([make_env_game0, make_env_game1], Model, batch_size=32)
+#    worker = MTConcurrentWorkers([make_env_game0, make_env_game1], Model, batch_size=32)
+    worker = ConcurrentWorkers(make_env_game0, Model, batch_size=32)
     print("=== [mtes] worker.sess = {}".format(worker.sess))
     with WorkerSession(worker) as sess:
         print("=== [mtes] worker.sess = {}".format(worker.sess))
@@ -188,7 +189,7 @@ def main(**exp):
 
         def make_offspring(state):
             for i in range(exp['population_size'] // 2):
-                print("=== [make_offspring] i = {}".format(i))
+#                print("=== [make_offspring] i = {}".format(i))
                 idx = noise.sample_index(rs, worker.model.num_params)
                 mutation_power = state.sample(state.mutation_power)
                 pos_theta = worker.model.compute_mutation(noise, state.theta, idx, mutation_power)
@@ -297,8 +298,8 @@ def main(**exp):
             os.makedirs(log_dir, exist_ok=True)
             save_file = os.path.join(log_dir, 'snapshot.pkl')
             with open(save_file, 'wb+') as file:
-                pickle.dump(state, file)
-            #copyfile(save_file, os.path.join(log_dir, 'snapshot_gen{:04d}.pkl'.format(state.it)))
+                pickle.dump(state, file, pickle.HIGHEST_PROTOCOL)
+            copyfile(save_file, os.path.join(log_dir, 'snapshot_gen{:04d}.pkl'.format(state.it)))
             tlogger.info("Saved iteration {} to {}".format(state.it, save_file))
 
             if state.timesteps_so_far >= exp['timesteps']:
