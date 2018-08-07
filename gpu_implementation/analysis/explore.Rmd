@@ -1,0 +1,56 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(tidyverse)
+options(scipen=999)
+epath <- "~/repos/deep-neuroevolution/gpu_implementation/analysis/experiments/"
+es_phoenix_log <- paste0(epath, "es_phoenix/logdir/log.txt")
+es_spaceinvaders_log <- paste0(epath, "es_spaceinvaders/logdir/log.txt")
+
+get_iteration_var_data <- function(logfile, var) {
+  grepstr <- paste0("^.* |  ", var, " .*  |")
+  cmd <- paste0("grep '", grepstr, "' ", logfile, " | sed -e 's/^.*  |  //;s/ .*$//'")
+  vals <- try(system(cmd, intern=TRUE))
+  result <- data.frame(vals = as.numeric(vals))
+  names(result) <- var
+  return(result)
+}
+
+get_iteration_data <- function(logfile) {
+  result <- bind_cols(
+    get_iteration_var_data(logfile, "Iteration"),
+    get_iteration_var_data(logfile, "MutationPower"),
+    get_iteration_var_data(logfile, "TimestepLimitPerEpisode"),
+    get_iteration_var_data(logfile, "PopulationEpRewMax"),
+    get_iteration_var_data(logfile, "PopulationEpRewMean"),
+    get_iteration_var_data(logfile, "PopulationEpRewMedian"),
+    get_iteration_var_data(logfile, "PopulationEpCount"),
+    get_iteration_var_data(logfile, "PopulationTimesteps"),
+    get_iteration_var_data(logfile, "TestRewMean"),
+    get_iteration_var_data(logfile, "TestRewMedian"),
+    get_iteration_var_data(logfile, "TestEpCount"),
+    get_iteration_var_data(logfile, "TestEpLenSum"),
+    get_iteration_var_data(logfile, "InitialRewMax"),
+    get_iteration_var_data(logfile, "InitialRewMean"),
+    get_iteration_var_data(logfile, "InitialRewMedian"),
+    get_iteration_var_data(logfile, "TimestepsThisIter"),
+    get_iteration_var_data(logfile, "TimestepsPerSecondThisIter"),
+    get_iteration_var_data(logfile, "TimestepsComputed"),
+    get_iteration_var_data(logfile, "TimestepsSoFar"),
+    get_iteration_var_data(logfile, "TimeElapsedThisIter"),
+    get_iteration_var_data(logfile, "TimeElapsedThisIterTotal"),
+    get_iteration_var_data(logfile, "TimeElapsed"),
+    get_iteration_var_data(logfile, "TimeElapsedTotal")
+  )
+  return(result)
+}
+es_phoenix_idata <- get_iteration_data(es_phoenix_log)
+es_spaceinvaders_idata <- get_iteration_data(es_spaceinvaders_log)
+
+ggplot(es_phoenix_idata, aes(x = Iteration, y = TestRewMean)) + geom_line()
+ggplot(es_spaceinvaders_idata, aes(x = Iteration, y = TestRewMean)) + geom_line()
+
+```
