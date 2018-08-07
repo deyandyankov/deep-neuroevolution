@@ -14,13 +14,15 @@ def make(game, batch_size, *args, **kwargs):
     raise NotImplementedError(game)
 
 
-def get_ref_batch(make_env_f, sess, batch_size):
+def get_ref_batch(make_env_f, sess, batch_size, game_max_action_space=None):
     env = make_env_f(1)
     assert env.discrete_action
-    # reduce action space to [0, 1, 2, 3] 
     game_min_action_space = 0
-    game_max_action_space = 4 
-#    actions = tf.random_uniform((1,), minval=0, maxval=env.action_space, dtype=tf.int32)
+    if game_max_action_space is None:
+        game_max_action_space = env.action_space
+        print("NOT reducing action space, cap is {}".format(game_max_action_space))
+    else:
+        print("Reducing action_space to {}".format(game_max_action_space))
     actions = tf.random_uniform((1,), minval=game_min_action_space, maxval=game_max_action_space, dtype=tf.int32)
     reset_op = env.reset()
     obs_op = env.observation()

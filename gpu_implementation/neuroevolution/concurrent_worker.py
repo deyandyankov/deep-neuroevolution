@@ -124,12 +124,7 @@ class RLEvalutionWorker(AsyncWorker):
         self.sample_callback[task_id] = callback
         self.queue.put(task_id)
 
-class MTRLEvalutionWorker(RLEvalutionWorker):
-    def __init__(self, game_index, make_env_f, model, batch_size, device='/cpu:1', ref_batch=None):
-        print("Initialising MTRLEvaluationWorker with make_env_f=%s" % make_env_f)
-        self.game_index = game_index
-        super(MTRLEvalutionWorker, self).__init__(make_env_f, model, batch_size, device, ref_batch)
-
+class RLEvalutionWorkerCappedActionSpace(RLEvalutionWorker):
     def make_net(self, model_constructor, device, ref_batch=None):
         override_action_space = 4
         self.model = model_constructor()
@@ -158,7 +153,6 @@ class MTRLEvalutionWorker(RLEvalutionWorker):
 
                 self.steps_counter = tf.Variable(np.zeros((), dtype=np.int64))
                 self.incr_counter = tf.assign_add(self.steps_counter, tf.cast(tf.reduce_prod(tf.shape(self.placeholder_indices)), dtype=tf.int64))
-
 
 
 class ConcurrentWorkers(object):
@@ -269,6 +263,29 @@ class ConcurrentWorkers(object):
             self.hub.close()
         for worker in self.workers:
             worker.close()
+
+class ConcurrentWorkersCappedActionSpace(ConcurrentWorkers):
+    def __init__(self, make_env_f, *args, gpus=get_available_gpus() * 4, input_queue=None, done_queue=None, **kwargs):
+        self.sess = None
+        if not gpus:
+            gpus = ['/cpu:0']
+        with tf.Session() as sess:
+            import gym_tensorflow
+            ref_batch = gym_tensorflow.get_ref_batch(make_env_f, sess, 128, game_max_action_space=4) # reduce action space to [0, 4]
+            ref_batch=ref_batch[:, ...]
+        if input_queue is None and done_queue is None:
+            self.workers = [RLEvalutionWorkerCappedActionSpace(make_env_f, *args, ref_batch=ref_batch, **dict(kwargs, device=gpus[i])) for i in range(len(gpus))]
+            self.model = self.workers[0].model
+            self.steps_counter = sum([w.steps_counter for w in self.workers])
+            self.async_hub = AsyncTaskHub()
+            self.hub = WorkerHub(self.workers, self.async_hub.input_queue, self.async_hub)
+        else:
+            fake_worker = RLEvalutionWorkerCappedActionSpace( * args, ** dict(kwargs, device=gpus[0]))
+            self.model = fake_worker.model
+            self.workers = []
+            self.hub = None
+            self.steps_counter = tf.constant(0)
+            self.async_hub = AsyncTaskHub(input_queue, done_queue)
 
 
 class MTConcurrentWorkers(ConcurrentWorkers):
