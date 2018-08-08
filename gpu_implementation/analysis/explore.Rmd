@@ -6,9 +6,10 @@ output: html_notebook
 ```{r}
 library(tidyverse)
 options(scipen=999)
-epath <- "~/repos/deep-neuroevolution/gpu_implementation/analysis/experiments/"
-es_phoenix_log <- paste0(epath, "es_phoenix/logdir/log.txt")
-es_spaceinvaders_log <- paste0(epath, "es_spaceinvaders/logdir/log.txt")
+epath <- "~/repos/deep-neuroevolution/gpu_implementation/analysis/logs/"
+es_phoenix_not_capped_logfile <- paste0(epath, "es_phoenix_not_capped.log")
+es_spaceinvaders_not_capped_logfile <- paste0(epath, "es_spaceinvaders_not_capped.log")
+es_spaceinvaders_capped_logfile <- paste0(epath, "es_spaceinvaders_capped.log")
 
 get_iteration_var_data <- function(logfile, var) {
   grepstr <- paste0("^.* |  ", var, " .*  |")
@@ -47,10 +48,26 @@ get_iteration_data <- function(logfile) {
   )
   return(result)
 }
-es_phoenix_idata <- get_iteration_data(es_phoenix_log)
-es_spaceinvaders_idata <- get_iteration_data(es_spaceinvaders_log)
 
-ggplot(es_phoenix_idata, aes(x = Iteration, y = TestRewMean)) + geom_line()
-ggplot(es_spaceinvaders_idata, aes(x = Iteration, y = TestRewMean)) + geom_line()
+es_phoenix_not_capped <- get_iteration_data(es_phoenix_not_capped_logfile) %>% 
+  mutate(game = "phoenix", experiment = "not_capped")
 
+es_spaceinvaders_not_capped <- get_iteration_data(es_spaceinvaders_not_capped_logfile) %>% 
+  mutate(game = "spaceinvaders", experiment = "not_capped")
+
+es_spaceinvaders_capped <- get_iteration_data(es_spaceinvaders_capped_logfile) %>% 
+  mutate(game = "spaceinvaders", experiment = "capped")
+
+experiments <- bind_rows(
+  es_phoenix_not_capped,
+  es_spaceinvaders_not_capped,
+  es_spaceinvaders_capped
+) %>% 
+  filter(Iteration < 50)
+```
+
+```{r}
+ggplot(experiments, aes(x = Iteration, y = TestRewMean, colour = experiment)) +
+  geom_line() +
+  facet_wrap(~ game)
 ```
