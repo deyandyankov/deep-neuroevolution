@@ -72,11 +72,13 @@ experiments <- bind_rows(
 ```
 
 ```{r}
-ggplot(experiments %>% filter(game == "phoenix"), aes(x = Iteration, y = TestRewMean)) + geom_line()
+ggplot(experiments %>% filter(game == "spaceinvaders"), aes(x = Iteration, y = TestRewMean, colour = experiment)) +
+  geom_line() +
+  geom_smooth()
 ```
 
 ```{r}
-ggplot(experiments, aes(x = Iteration, y = TestRewMean, colour = experiment)) +
+ggplot(experiments %>% filter(game == "phoenix"), aes(x = Iteration, y = TestRewMean, colour = experiment)) +
   geom_line() +
-  facet_wrap(~ game)
+  geom_smooth()
 ```
