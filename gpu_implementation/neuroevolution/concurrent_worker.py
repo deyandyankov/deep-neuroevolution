@@ -227,6 +227,7 @@ class ConcurrentWorkers(object):
                     print("=== " + logstr)
                     tstart = time.time()
                     last_timesteps = cur_timesteps
+        print("== monitor_eval_repeated -> for loop ended")
 
         while not all([t.ready() for t in tasks]):
             if time.time() - tstart > 5:
@@ -236,6 +237,8 @@ class ConcurrentWorkers(object):
                 last_timesteps = cur_timesteps
             time.sleep(0.1)
         tlogger.info('Done evaluating {} episodes in {:.2f} seconds'.format(len(tasks), time.time()-tstart_all))
+
+        print("== monitor_eval_repeated -> while loop ended")
 
         results = [t.get() for t in tasks]
         # Group episodes

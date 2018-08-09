@@ -55,13 +55,13 @@ class WorkerHub(object):
             while True:
                 worker_task = self.available_workers.get()
                 if worker_task is None:
-                    tlogger.info('WorkerHub._handle_input done')
+                    tlogger.info('WorkerHub._handle_input done (worker_task is None, i.e. no available workers..?)')
                     break
                 worker, subworker = worker_task
 
                 task = self.input_queue.get()
                 if task is None:
-                    tlogger.info('WorkerHub._handle_input done')
+                    tlogger.info('WorkerHub._handle_input done (task is None)')
                     break
                 task_id, task = task
                 self._cache[worker_task] = task_id
