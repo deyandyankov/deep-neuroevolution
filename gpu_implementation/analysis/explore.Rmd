@@ -8,6 +8,7 @@ library(tidyverse)
 options(scipen=999)
 epath <- "~/repos/deep-neuroevolution/gpu_implementation/analysis/logs/"
 es_phoenix_not_capped_logfile <- paste0(epath, "es_phoenix_not_capped.log")
+es_phoenix_capped_logfile <- paste0(epath, "es_phoenix_capped.log")
 es_spaceinvaders_not_capped_logfile <- paste0(epath, "es_spaceinvaders_not_capped.log")
 es_spaceinvaders_capped_logfile <- paste0(epath, "es_spaceinvaders_capped.log")
 
@@ -52,6 +53,9 @@ get_iteration_data <- function(logfile) {
 es_phoenix_not_capped <- get_iteration_data(es_phoenix_not_capped_logfile) %>% 
   mutate(game = "phoenix", experiment = "not_capped")
 
+es_phoenix_capped <- get_iteration_data(es_phoenix_capped_logfile) %>% 
+  mutate(game = "phoenix", experiment = "capped")
+
 es_spaceinvaders_not_capped <- get_iteration_data(es_spaceinvaders_not_capped_logfile) %>% 
   mutate(game = "spaceinvaders", experiment = "not_capped")
 
@@ -60,10 +64,15 @@ es_spaceinvaders_capped <- get_iteration_data(es_spaceinvaders_capped_logfile) %
 
 experiments <- bind_rows(
   es_phoenix_not_capped,
+  es_phoenix_capped,
   es_spaceinvaders_not_capped,
   es_spaceinvaders_capped
 ) %>% 
   filter(Iteration < 50)
+```
+
+```{r}
+ggplot(experiments %>% filter(game == "phoenix"), aes(x = Iteration, y = TestRewMean)) + geom_line()
 ```
 
 ```{r}
