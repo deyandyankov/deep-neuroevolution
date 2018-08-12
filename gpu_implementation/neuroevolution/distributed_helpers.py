@@ -47,7 +47,7 @@ class WorkerHub(object):
         self.available_workers.put(worker_task)
         task_id = self._cache[worker_task]
         del self._cache[worker_task]
-        self.done_buffer.put((task_id, result))
+        self.done_buffer.put((worker.game_index, task_id, result))
 
     @staticmethod
     def _handle_input(self):
@@ -79,6 +79,7 @@ class WorkerHub(object):
                 if result is None:
                     tlogger.info('WorkerHub._handle_output done')
                     break
+#                print("== putting result in done queue: result={}".format(result))
                 self.done_queue.put(result)
         except:
             tlogger.exception('WorkerHub._handle_output exception thrown')
@@ -101,7 +102,9 @@ class AsyncTaskHub(object):
         self.input_queue = input_queue
         self._cache = {}
         self.results_queue = None
+        print("== AsyncTaskHub()")
         if results_queue is not None:
+            print("== results_queue is not None")
             self.results_queue = results_queue
 
             self._output_handler = threading.Thread(
@@ -114,6 +117,7 @@ class AsyncTaskHub(object):
 
     @staticmethod
     def _handle_output(self):
+        print("== _handle_output()")
         try:
             while True:
                 result = self.results_queue.get()
@@ -131,6 +135,10 @@ class AsyncTaskHub(object):
         return result
 
     def put(self, result):
-        job, result=result
-        self._cache[job]._set(0, (True, result))
+        game_index, job, result=result
+        return_result = [game_index]
+        for e in result:
+            return_result.append(e)
+        return_result = tuple(return_result)
+        self._cache[job]._set(0, (True, return_result))
 

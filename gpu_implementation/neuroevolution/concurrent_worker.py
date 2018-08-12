@@ -125,6 +125,10 @@ class RLEvalutionWorker(AsyncWorker):
         self.queue.put(task_id)
 
 class RLEvalutionWorkerCappedActionSpace(RLEvalutionWorker):
+    def __init__(self, game_index, make_env_f, model, batch_size, device, ref_batch):
+        self.game_index = game_index
+        super(RLEvalutionWorkerCappedActionSpace, self).__init__(make_env_f, model, batch_size, device, ref_batch)
+
     def make_net(self, model_constructor, device, ref_batch=None):
         override_action_space = 4
         self.model = model_constructor()
@@ -246,7 +250,7 @@ class ConcurrentWorkers(object):
 
         l = []
         for evals in results:
-            seeds, rews, length = zip(*evals)
+            game_index, seeds, rews, length = zip(*evals)
             for s in seeds[1:]:
                 assert s == seeds[0]
             l.append((seeds[0], np.array(rews), np.array(length)))
@@ -308,9 +312,9 @@ class MTConcurrentWorkers(ConcurrentWorkers):
                 else:
                     game_index = 0 # first game
                 game_make_env = make_env_fs[game_index]
-                ref_batch = gym_tensorflow.get_ref_batch(game_make_env, sess, 128)
+                ref_batch = gym_tensorflow.get_ref_batch(game_make_env, sess, 128, game_max_action_space=4)
                 ref_batch = ref_batch[:, ...]
-                worker = MTRLEvalutionWorker(game_index, game_make_env, *args, ref_batch=ref_batch, **dict(kwargs, device=gpus[i]))
+                worker = RLEvalutionWorkerCappedActionSpace(game_index, game_make_env, *args, ref_batch=ref_batch, **dict(kwargs, device=gpus[i]))
                 self.workers.append(worker)
             self.model = self.workers[0].model
             self.steps_counter = sum([w.steps_counter for w in self.workers])
@@ -318,32 +322,30 @@ class MTConcurrentWorkers(ConcurrentWorkers):
             self.hub = WorkerHub(self.workers, self.async_hub.input_queue, self.async_hub)
 
     def monitor_eval_repeated(self, it, max_frames, num_episodes):
-        print("=== [MTConcurrentWorkers.monitor_eval_repeated] self.sess = {}".format(self.sess))
-        return super(MTConcurrentWorkers, self).monitor_eval_repeated(it, max_frames, num_episodes)
-
-    def monitor_eval(self, it, max_frames):
-        logging_interval = 5
-        print("=== [MTConcurrentWorkers.monitor_eval] it = {}".format(it))
-        print("=== [MTConcurrentWorkers.monitor_eval] self.sess = {}".format(self.sess))
-        print("=== [MTConcurrentWorkers.monitor_eval] self.steps_counter = {}".format(self.steps_counter))
+        print("== monitor_eval_repeated called from MTConcurrentWorkers()")
+        logging_interval = 30
         last_timesteps = self.sess.run(self.steps_counter)
-        print("=== [MTConcurrentWorkers.mmonitor_eval] last_timesteps = {}".format(last_timesteps))
         tstart_all = time.time()
         tstart = time.time()
 
         tasks = []
         for t in it:
-#            print("=== [MTConcurrentWorkers.monitor_eval] tasks appended so far: {}".format(len(tasks)))
-            tasks.append(self.eval_async(*t, max_frames=max_frames))
-            if time.time() - tstart > logging_interval:
-                cur_timesteps = self.sess.run(self.steps_counter)
-                tlogger.info('Num timesteps:', cur_timesteps, 'per second:', (cur_timesteps-last_timesteps)//(time.time()-tstart), 'num episodes finished: {}/{}'.format(sum([1 if t.ready() else 0 for t in tasks]), len(tasks)))
-                tstart = time.time()
-                last_timesteps = cur_timesteps
+            for _ in range(num_episodes):
+                tasks.append(self.eval_async(*t, max_frames=max_frames))
+                if time.time() - tstart > logging_interval:
+                    cur_timesteps = self.sess.run(self.steps_counter)
+                    logstr = 'Num timesteps:', cur_timesteps, 'per second:', (cur_timesteps-last_timesteps)//(time.time()-tstart), 'num episodes finished: {}/{}'.format(sum([1 if task.ready() else 0 for task in tasks]), len(tasks))
+                    tlogger.info(logstr)
+                    print("=== " + logstr)
+                    tstart = time.time()
+                    last_timesteps = cur_timesteps
+        print("== monitor_eval_repeated -> for loop ended")
 
-        print("=== [MTConcurrentWorkers.monitor_eval] -- all tasks are ready")
         while not all([t.ready() for t in tasks]):
-            if time.time() - tstart > logging_interval:
+            for t in tasks:
+                if t.ready():
+                    pass #print(t.get())
+            if time.time() - tstart > 5:
                 cur_timesteps = self.sess.run(self.steps_counter)
                 tlogger.info('Num timesteps:', cur_timesteps, 'per second:', (cur_timesteps-last_timesteps)//(time.time()-tstart), 'num episodes:', sum([1 if t.ready() else 0 for t in tasks]))
                 tstart = time.time()
@@ -351,5 +353,19 @@ class MTConcurrentWorkers(ConcurrentWorkers):
             time.sleep(0.1)
         tlogger.info('Done evaluating {} episodes in {:.2f} seconds'.format(len(tasks), time.time()-tstart_all))
 
-        return [t.get() for t in tasks]
+        print("== monitor_eval_repeated -> while loop ended")
+
+        results = [t.get() for t in tasks]
+        print("== results = {}".format(results))
+        # Group episodes
+        results = zip(*[iter(results)] * num_episodes)
+
+        l = []
+        for evals in results:
+            game_index, seeds, rews, length = zip(*evals)
+            for s in seeds[1:]:
+                assert s == seeds[0]
+            l.append((game_index, seeds[0], np.array(rews), np.array(length)))
+        print("=== monitor_eval_repetead returns l = {}".format(l))
+        return l
 
