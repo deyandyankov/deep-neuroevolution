@@ -11,7 +11,7 @@ es_phoenix_not_capped_logfile <- paste0(epath, "es_phoenix_not_capped.log")
 es_phoenix_capped_logfile <- paste0(epath, "es_phoenix_capped.log")
 es_spaceinvaders_not_capped_logfile <- paste0(epath, "es_spaceinvaders_not_capped.log")
 es_spaceinvaders_capped_logfile <- paste0(epath, "es_spaceinvaders_capped.log")
-
+es_mt_capped_logfile <- paste0(epath, "es_mt_capped.log")
 get_iteration_var_data <- function(logfile, var) {
   grepstr <- paste0("^.* |  ", var, " .*  |")
   cmd <- paste0("grep '", grepstr, "' ", logfile, " | sed -e 's/^.*  |  //;s/ .*$//'")
@@ -22,6 +22,30 @@ get_iteration_var_data <- function(logfile, var) {
 }
 
 get_iteration_data <- function(logfile) {
+  iterationcol <- get_iteration_var_data(logfile, "Iteration")
+  
+  g0TestRewMin <- get_iteration_var_data(logfile, "Game0TestRewMin")
+  g0TestRewMin <- bind_rows(g0TestRewMin, data.frame(Game0TestRewMin = rep(NA, nrow(iterationcol) - nrow(g0TestRewMin))))
+  g0TestRewMean <- get_iteration_var_data(logfile, "Game0TestRewMean")
+  g0TestRewMean <- bind_rows(g0TestRewMean, data.frame(Game0TestRewMean = rep(NA, nrow(iterationcol) - nrow(g0TestRewMean))))
+  g0TestRewMedian <- get_iteration_var_data(logfile, "Game0TestRewMedian")
+  g0TestRewMedian <- bind_rows(g0TestRewMedian, data.frame(Game0TestRewMedian = rep(NA, nrow(iterationcol) - nrow(g0TestRewMedian))))
+  g0TestRewMax <- get_iteration_var_data(logfile, "Game0TestRewMax")
+  g0TestRewMax <- bind_rows(g0TestRewMax, data.frame(Game0TestRewMax = rep(NA, nrow(iterationcol) - nrow(g0TestRewMax))))
+  g0TestRewEpCount <- get_iteration_var_data(logfile, "Game0TestRewEpCount")
+  g0TestRewEpCount <- bind_rows(g0TestRewEpCount, data.frame(Game0TestRewEpCount = rep(NA, nrow(iterationcol) - nrow(g0TestRewEpCount))))
+  
+  g1TestRewMin <- get_iteration_var_data(logfile, "Game1TestRewMin")
+  g1TestRewMin <- bind_rows(g1TestRewMin, data.frame(Game1TestRewMin = rep(NA, nrow(iterationcol) - nrow(g1TestRewMin))))
+  g1TestRewMean <- get_iteration_var_data(logfile, "Game1TestRewMean")
+  g1TestRewMean <- bind_rows(g1TestRewMean, data.frame(Game1TestRewMean = rep(NA, nrow(iterationcol) - nrow(g1TestRewMean))))
+  g1TestRewMedian <- get_iteration_var_data(logfile, "Game1TestRewMedian")
+  g1TestRewMedian <- bind_rows(g1TestRewMedian, data.frame(Game1TestRewMedian = rep(NA, nrow(iterationcol) - nrow(g1TestRewMedian))))
+  g1TestRewMax <- get_iteration_var_data(logfile, "Game1TestRewMax")
+  g1TestRewMax <- bind_rows(g1TestRewMax, data.frame(Game1TestRewMax = rep(NA, nrow(iterationcol) - nrow(g1TestRewMax))))
+  g1TestRewEpCount <- get_iteration_var_data(logfile, "Game1TestRewEpCount")
+  g1TestRewEpCount <- bind_rows(g1TestRewEpCount, data.frame(Game1TestRewEpCount = rep(NA, nrow(iterationcol) - nrow(g1TestRewEpCount))))
+  
   result <- bind_cols(
     get_iteration_var_data(logfile, "Iteration"),
     get_iteration_var_data(logfile, "MutationPower"),
@@ -46,7 +70,11 @@ get_iteration_data <- function(logfile) {
     get_iteration_var_data(logfile, "TimeElapsedThisIterTotal"),
     get_iteration_var_data(logfile, "TimeElapsed"),
     get_iteration_var_data(logfile, "TimeElapsedTotal")
-  )
+  ) %>% 
+    bind_cols(
+       g0TestRewMin, g0TestRewMean, g0TestRewMedian, g0TestRewMax, g0TestRewEpCount,
+       g1TestRewMin, g1TestRewMean, g1TestRewMedian, g1TestRewMax, g1TestRewEpCount
+     )
   return(result)
 }
 
@@ -62,13 +90,17 @@ es_spaceinvaders_not_capped <- get_iteration_data(es_spaceinvaders_not_capped_lo
 es_spaceinvaders_capped <- get_iteration_data(es_spaceinvaders_capped_logfile) %>% 
   mutate(game = "spaceinvaders", action_space = "capped")
 
+es_mt_capped <- get_iteration_data(es_mt_capped_logfile) %>% 
+  mutate(game = "mt", experiment = "capped")
+
 experiments <- bind_rows(
   es_phoenix_not_capped,
   es_phoenix_capped,
   es_spaceinvaders_not_capped,
-  es_spaceinvaders_capped
+  es_spaceinvaders_capped,
+  es_mt_capped
 ) %>% 
-  filter(Iteration < 50)
+  filter(Iteration < 50) # 50
 ```
 
 ```{r}
@@ -79,6 +111,26 @@ ggplot(experiments %>% filter(game == "spaceinvaders"), aes(x = Iteration, y = T
 
 ```{r}
 ggplot(experiments %>% filter(game == "phoenix"), aes(x = Iteration, y = TestRewMean, colour = action_space)) +
+  geom_line() +
+  geom_smooth()
+```
+
+```{r}
+df <- bind_rows(
+  es_phoenix_capped %>% select(Iteration, TestRewMean) %>% mutate(experiment = "phoenix"),
+  es_mt_capped %>% select(Iteration, Game1TestRewMean) %>% rename(TestRewMean = Game1TestRewMean) %>% mutate(experiment = "mt_phoenix")
+)
+ggplot(df, aes(x = Iteration, y = TestRewMean, colour=experiment)) +
+  geom_line() +
+  geom_smooth()
+```
+
+```{r}
+df <- bind_rows(
+  es_spaceinvaders_capped %>% select(Iteration, TestRewMean) %>% mutate(experiment = "spaceinvaders"),
+  es_mt_capped %>% select(Iteration, Game0TestRewMean) %>% rename(TestRewMean = Game0TestRewMean) %>% mutate(experiment = "mt_spaceinvaders")
+)
+ggplot(df, aes(x = Iteration, y = TestRewMean, colour=experiment)) +
   geom_line() +
   geom_smooth()
 ```
