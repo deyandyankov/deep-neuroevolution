@@ -1,10 +1,13 @@
 ---
 title: "R Notebook"
-output: html_notebook
+output:
+  html_document:
+    df_print: paged
 ---
 
 ```{r}
 library(tidyverse)
+library(ggthemes)
 options(scipen=999)
 epath <- "~/repos/deep-neuroevolution/gpu_implementation/analysis/logs/"
 es_phoenix_not_capped_logfile <- paste0(epath, "es_phoenix_not_capped.log")
@@ -79,13 +82,13 @@ get_iteration_data <- function(logfile) {
 }
 
 es_phoenix_not_capped <- get_iteration_data(es_phoenix_not_capped_logfile) %>% 
-  mutate(game = "phoenix", action_space = "not_capped")
+  mutate(game = "phoenix", action_space = "normal")
 
 es_phoenix_capped <- get_iteration_data(es_phoenix_capped_logfile) %>% 
   mutate(game = "phoenix", action_space = "capped")
 
 es_spaceinvaders_not_capped <- get_iteration_data(es_spaceinvaders_not_capped_logfile) %>% 
-  mutate(game = "spaceinvaders", action_space = "not_capped")
+  mutate(game = "spaceinvaders", action_space = "normal")
 
 es_spaceinvaders_capped <- get_iteration_data(es_spaceinvaders_capped_logfile) %>% 
   mutate(game = "spaceinvaders", action_space = "capped")
@@ -99,14 +102,44 @@ experiments <- bind_rows(
   es_spaceinvaders_not_capped,
   es_spaceinvaders_capped,
   es_mt_capped
-) %>% 
-  filter(Iteration < 50) # 50
+)
 ```
 
 ```{r}
-ggplot(experiments %>% filter(game == "spaceinvaders"), aes(x = Iteration, y = TestRewMean, colour = action_space)) +
+df <- experiments %>% 
+  filter(game == "spaceinvaders") %>% 
+  filter(Iteration <= 46)
+p <- ggplot(df, aes(Iteration, TestRewMean, colour = action_space)) +
   geom_line() +
-  geom_smooth()
+#  geom_smooth() +
+  scale_color_manual(values = c("red", "black"), name= "action space") + #, guide = guide_legend(reverse = TRUE))
+  ggtitle("Space Invaders") +
+  ylab("Score") +
+  xlab("Iteration") +
+  labs(colour="action space") +
+  xlim(c(1, 46)) +
+  ylim(c(0, 800)) +
+  theme_light()
+p
+ggsave("/tmp/spaceinvaders.png", p, width=5, height=4)
+```
+
+```{r}
+df <- experiments %>% 
+  filter(game == "phoenix") %>% 
+  filter(Iteration <= 46)
+p <- ggplot(df, aes(Iteration, TestRewMean, colour = action_space)) +
+  geom_line() +
+#  geom_smooth() +
+  scale_color_manual(values = c("red", "black"), name= "action space") + #, guide = guide_legend(reverse = TRUE))
+  ggtitle("Phoenix") +
+  ylab("Score") +
+  xlab("Iteration") +
+  xlim(c(1, 46)) +
+  ylim(c(0, 4000)) +
+  theme_light()
+p
+ggsave("/tmp/phoenix.png", p, width=5, height=4)
 ```
 
 ```{r}
@@ -117,20 +150,39 @@ ggplot(experiments %>% filter(game == "phoenix"), aes(x = Iteration, y = TestRew
 
 ```{r}
 df <- bind_rows(
-  es_phoenix_capped %>% select(Iteration, TestRewMean) %>% mutate(experiment = "phoenix"),
-  es_mt_capped %>% select(Iteration, Game1TestRewMean) %>% rename(TestRewMean = Game1TestRewMean) %>% mutate(experiment = "mt_phoenix")
-)
-ggplot(df, aes(x = Iteration, y = TestRewMean, colour=experiment)) +
+  es_phoenix_capped %>% select(Iteration, TestRewMean) %>% mutate(experiment = "capped"),
+  es_phoenix_not_capped %>% select(Iteration, TestRewMean) %>% mutate(experiment = "normal"),
+  es_mt_capped %>% select(Iteration, Game1TestRewMean) %>% rename(TestRewMean = Game1TestRewMean) %>% mutate(experiment = "capped multi task")
+) %>% filter(Iteration <= 46)
+p <- ggplot(df, aes(Iteration, TestRewMean, colour = experiment)) +
   geom_line() +
-  geom_smooth()
+#  geom_smooth() +
+  scale_color_manual(values = c("red", "blue", "black"), name= "action space") + #, guide = guide_legend(reverse = TRUE))
+  ggtitle("Phoenix") +
+  ylab("Score") +
+  xlab("Iteration") +
+  ylim(c(0, 4000)) +
+  theme_light()
+ggsave("/tmp/mt_phoenix.png", p, width=5, height=4)
+p
 ```
 
 ```{r}
 df <- bind_rows(
-  es_spaceinvaders_capped %>% select(Iteration, TestRewMean) %>% mutate(experiment = "spaceinvaders"),
-  es_mt_capped %>% select(Iteration, Game0TestRewMean) %>% rename(TestRewMean = Game0TestRewMean) %>% mutate(experiment = "mt_spaceinvaders")
-)
-ggplot(df, aes(x = Iteration, y = TestRewMean, colour=experiment)) +
+  es_spaceinvaders_capped %>% select(Iteration, TestRewMean) %>% mutate(experiment = "capped"),
+  es_spaceinvaders_not_capped %>% select(Iteration, TestRewMean) %>% mutate(experiment = "normal"),
+  es_mt_capped %>% select(Iteration, Game0TestRewMean) %>% rename(TestRewMean = Game0TestRewMean) %>% mutate(experiment = "capped multi task")
+) %>%
+  filter(Iteration <= 46) %>% 
+  select(Iteration, TestRewMean, experiment)
+p <- ggplot(df, aes(Iteration, TestRewMean, colour = experiment)) +
   geom_line() +
-  geom_smooth()
+  scale_color_manual(values = c("red", "blue", "black"), name= "action space") + #, guide = guide_legend(reverse = TRUE))
+  ggtitle("Space Invaders") +
+  ylab("Score") +
+  xlab("Iteration") +
+  ylim(c(0, 800)) +
+  theme_light()
+ggsave("/tmp/mt_spaceinvaders.png", p, width=5, height=4)
+p
 ```
