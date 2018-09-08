@@ -13,8 +13,8 @@ epath <- "~/repos/deep-neuroevolution/gpu_implementation/analysis/logs/"
 es_phoenix_not_capped_logfile <- paste0(epath, "es_phoenix_not_capped2.log")
 es_phoenix_capped_logfile <- paste0(epath, "es_phoenix_capped2.log")
 es_spaceinvaders_not_capped_logfile <- paste0(epath, "es_spaceinvaders_not_capped2.log")
-es_spaceinvaders_capped_logfile <- paste0(epath, "es_spaceinvaders_capped.log")
-es_mt_capped_logfile <- paste0(epath, "es_mt_capped.log")
+es_spaceinvaders_capped_logfile <- paste0(epath, "es_spaceinvaders_capped2.log")
+es_mt_capped_logfile <- paste0(epath, "es_mt_capped2.log")
 get_iteration_var_data <- function(logfile, var) {
   grepstr <- paste0("^.* |  ", var, " .*  |")
   cmd <- paste0("grep '", grepstr, "' ", logfile, " | sed -e 's/^.*  |  //;s/ .*$//'")
@@ -138,8 +138,8 @@ p <- ggplot(df, aes(Iteration, TestRewMean, colour = action_space)) +
 #  xlim(c(1, 46)) +
 #  ylim(c(0, 5000)) +
   theme_light()
-p
 ggsave("/tmp/phoenix.png", p, width=5, height=4)
+p
 ```
 
 ```{r}
@@ -178,5 +178,53 @@ p <- ggplot(df, aes(Iteration, TestRewMean, colour = experiment)) +
 #  ylim(c(0, 800)) +
   theme_light()
 ggsave("/tmp/mt_spaceinvaders.png", p, width=5, height=4)
+p
+```
+
+```{r}
+df <- es_mt_capped %>%
+  select(Iteration, Game0TestRewMin, Game0TestRewMean, Game0TestRewMax) %>%
+  rename(
+    TestRewMin = Game0TestRewMin,
+    TestRewMean = Game0TestRewMean,
+    TestRewMax = Game0TestRewMax
+  ) %>% 
+  filter(Iteration <= 200) %>% 
+  select(Iteration, TestRewMin, TestRewMean, TestRewMax)
+df
+p <- ggplot(df) +
+  geom_line(aes(Iteration, TestRewMin), colour="gray") +
+  geom_line(aes(Iteration, TestRewMean)) +
+  geom_line(aes(Iteration, TestRewMax), colour="gray") +
+  ggtitle("Space Invaders") +
+  ylab("Score") +
+  xlab("Iteration") +
+#  ylim(c(0, 800)) +
+  theme_light()
+ggsave("/tmp/mt_spaceinvaders-min_mean_max.png", p, width=5, height=4)
+p
+```
+
+```{r}
+df <- es_mt_capped %>%
+  select(Iteration, Game1TestRewMin, Game1TestRewMean, Game1TestRewMax) %>%
+  rename(
+    TestRewMin = Game1TestRewMin,
+    TestRewMean = Game1TestRewMean,
+    TestRewMax = Game1TestRewMax
+  ) %>% 
+  filter(Iteration <= 200) %>% 
+  select(Iteration, TestRewMin, TestRewMean, TestRewMax)
+df
+p <- ggplot(df) +
+  geom_line(aes(Iteration, TestRewMin), colour="gray") +
+  geom_line(aes(Iteration, TestRewMean)) +
+  geom_line(aes(Iteration, TestRewMax), colour="gray") +
+  ggtitle("Phoenix") +
+  ylab("Score") +
+  xlab("Iteration") +
+#  ylim(c(0, 800)) +
+  theme_light()
+ggsave("/tmp/mt_phoenix-min_mean_max.png", p, width=5, height=4)
 p
 ```
