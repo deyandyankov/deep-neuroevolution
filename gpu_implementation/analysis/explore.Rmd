@@ -168,7 +168,7 @@ multiplot(p611, p612, cols=2)
 df621 <- experiments %>%
   filter(game == "spaceinvaders", action_space == "normal") %>%
   filter(Iteration <= 200) %>%
-  mutate(iterminutes = TimestepsThisIter/60)
+  mutate(iterminutes = TimeElapsedThisIter/60)
 p621 <- ggplot(df621, aes(Iteration, iterminutes)) +
   geom_line() +
   ggtitle("Space Invaders (Experiment #1)") +
